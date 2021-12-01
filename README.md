@@ -1,2 +1,1 @@
-# binance-api
-Testing Binance API
+# Testing Binance API
