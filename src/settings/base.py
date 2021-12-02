@@ -4,6 +4,6 @@ api_key=""
 secrete_key=""
 
 try:
-    from .secret import *
+    from settings.secret import *
 except (ModuleNotFoundError, ImportError):
     pass
