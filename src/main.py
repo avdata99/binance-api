@@ -1,9 +1,9 @@
-from settings.base import api_key, secrete_key
+from settings.base import BINANCE_API_KEY, BINANCE_SECRET_KEY
 from mdl.base import MyBinance
 
 mb = MyBinance(
-    api_key=api_key,
-    secrete_key=secrete_key,
+    api_key=BINANCE_API_KEY,
+    secrete_key=BINANCE_SECRET_KEY,
     money='USDT',
     assets=['ETH'],
     pause=60 * 60,

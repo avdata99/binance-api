@@ -1,1 +1,2 @@
 binance-connector==1.8.0
+python_telegram_bot==13.8.1

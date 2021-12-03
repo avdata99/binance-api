@@ -4,6 +4,8 @@
 #
 #    pip-compile
 #
+apscheduler==3.6.3
+    # via python-telegram-bot
 attrs==21.2.0
     # via
     #   automat
@@ -13,10 +15,18 @@ autobahn==21.2.1
     # via binance-connector
 automat==20.2.0
     # via twisted
+backports.zoneinfo==0.2.1
+    # via
+    #   pytz-deprecation-shim
+    #   tzlocal
 binance-connector==1.8.0
     # via -r requirements.in
+cachetools==4.2.2
+    # via python-telegram-bot
 certifi==2021.10.8
-    # via requests
+    # via
+    #   python-telegram-bot
+    #   requests
 cffi==1.15.0
     # via cryptography
 chardet==4.0.0
@@ -48,19 +58,34 @@ pycparser==2.21
     # via cffi
 pyopenssl==19.0.0
     # via binance-connector
+python_telegram_bot==13.8.1
+    # via -r requirements.in
+pytz==2021.3
+    # via
+    #   apscheduler
+    #   python-telegram-bot
+pytz-deprecation-shim==0.1.0.post0
+    # via tzlocal
 requests==2.25.1
     # via binance-connector
 service-identity==21.1.0
     # via binance-connector
 six==1.16.0
     # via
+    #   apscheduler
     #   automat
     #   pyopenssl
     #   service-identity
+tornado==6.1
+    # via python-telegram-bot
 twisted==21.2.0
     # via binance-connector
 txaio==21.2.1
     # via autobahn
+tzdata==2021.5
+    # via pytz-deprecation-shim
+tzlocal==4.1
+    # via apscheduler
 urllib3==1.26.7
     # via requests
 zope.interface==5.4.0

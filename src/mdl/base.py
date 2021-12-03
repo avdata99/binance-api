@@ -2,17 +2,27 @@ from random import choice
 from time import sleep
 from datetime import datetime
 from binance.spot import Spot
-from settings.base import api_key, secrete_key
+from settings.base import BINANCE_API_KEY, BINANCE_SECRET_KEY, TELEGRAM_CHAT_ID
+from mdl.notifications import Binancito
 
 
 class MyBinance:
     """ My custom binance bot 
         Read: # https://binance-connector.readthedocs.io/en/stable/
     """
-    def __init__(self, api_key, secrete_key, money='USDT', assets=['ETH'], pause=60, bucket_size=100.0):
+    def __init__(
+        self,
+        api_key,
+        secrete_key,
+        money='USDT',
+        assets=['ETH'],
+        pause=60,
+        bucket_size=100.0,
+        telegram_chat_id=TELEGRAM_CHAT_ID,
+    ):
         if api_key == '' or secrete_key == '':
             raise ValueError('API key and secrete key are required')
-        self.client = Spot(key=api_key, secret=secrete_key)
+        self.client = Spot(key=BINANCE_API_KEY, secret=BINANCE_SECRET_KEY)
         self.account = None
         # Asset code for some stable coin to buy
         self.money=money
@@ -26,6 +36,11 @@ class MyBinance:
         # To load
         self.balances = None
         self.open_orders = None
+        if telegram_chat_id:
+            self.binancito = Binancito(main_chat_id=telegram_chat_id)
+            self.binancito.start()
+        else:
+            self.binancito = None
 
     def load_balances(self):
         """ Get all balances
@@ -52,16 +67,16 @@ class MyBinance:
                     'free': free,
                     'locked': locked
                 }
-        print('##### Balances')
+        
         money = self.balances.get(self.money, {})
         free_money = money.get('free', 0.0)
         locked_money = money.get('locked', 0.0)
-        print(f'##### Free Money {self.money}: {free_money} ({locked_money} locked)')
+        self.notify(f'Free Money {self.money}: {free_money} ({locked_money} locked)')
         assets = {k: v for k, v in self.balances.items() if k != self.money}
         for asset, balance in assets.items():
             free = balance.get('free', 0.0)
             locked = balance.get('locked', 0.0)
-            print(f'##### ASSET {asset}: {free} ({locked} locked)')
+            self.notify(f' - ASSET {asset}: {free} ({locked} locked)')
         return self.balances
 
     def have_money_to_invest(self):
@@ -98,9 +113,9 @@ class MyBinance:
             # we buy in money
             params['quoteOrderQty'] = quantity
 
-        print(f'Ordering to {side} ({order_type}) {quantity} {asset} at {price}')
+        self.notify(f'Ordering to {side} ({order_type}) {quantity} {asset} at {price}')
         response = self.client.new_order(**params)
-        print(response)
+        self.notify(f' - Binance responce: {response}')
         return response
 
     def buy(self, asset):
@@ -112,20 +127,26 @@ class MyBinance:
             See your orders https://www.binance.com/es/my/orders/exchange/openorder """
         return self._order(asset, 'SELL', 'LIMIT', quantity, price)
 
+    def notify(self, message):
+        if self.binancito:
+            self.binancito.send_main_user_message(message)
+        print(message)
+
     def run(self):
         """ Run the bot """
         while True:
             self.load_balances()
+            now = datetime.now()
+            current_time = now.strftime("%Y-%m-%D %H:%M:%S")
+                
             if self.have_money_to_invest():
-                now = datetime.now()
-                current_time = now.strftime("%Y-%m-%D %H:%M:%S")
-                print(f'OK TO INVEST {current_time}')
+                self.notify(f'OK TO INVEST {current_time}')
                 # Buy any asset at a market price
                 asset = choice(self.assets)
                 response = self.buy(asset)
                 # an order is filled with multiple fills. We use the first one
                 price = float(response['fills'][0]['price'])
-                print(f'  - Order price {price}')
+                self.notify(f'  - Order price {price}')
                 quantity = float(response['executedQty'])
                 # create several sell orders
                 # avoid "Filter failure: PRICE_FILTER" error (use right number of decimal digits)
@@ -143,8 +164,8 @@ class MyBinance:
                 q3 = round(quantity * 0.2, 4)
                 p3 = round(price * 1.04, 2)
                 r3 = self.sell(asset, q3, p3)
-                print(f'  - Sell orders {p1} {r1["status"]}, {p2} {r2["status"]}, {p3} {r3["status"]}')
+                self.notify(f'  - Sell orders {p1} {r1["status"]}, {p2} {r2["status"]}, {p3} {r3["status"]}')
             else:
-                print('NOT ENOUGH MONEY TO INVEST')
+                self.notify(f'NOT ENOUGH MONEY TO INVEST {current_time}')
 
             sleep(self.pause)
