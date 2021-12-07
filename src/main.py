@@ -6,7 +6,6 @@ mb = MyBinance(
     secrete_key=BINANCE_SECRET_KEY,
     money='USDT',
     assets=['ETH'],
-    pause=60 * 60,
     bucket_size=100.0
 )
 

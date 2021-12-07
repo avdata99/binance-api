@@ -16,7 +16,6 @@ class MyBinance:
         secrete_key,
         money='USDT',
         assets=['ETH'],
-        pause=60,
         bucket_size=100.0,
         telegram_chat_id=TELEGRAM_CHAT_ID,
     ):
@@ -28,8 +27,6 @@ class MyBinance:
         self.money=money
         # Define a list of assets to buy periodically
         self.assets=assets
-        # time between calls
-        self.pause=pause
         # size of each purchase (in "money")
         self.bucket_size=bucket_size
 
@@ -134,38 +131,36 @@ class MyBinance:
 
     def run(self):
         """ Run the bot """
-        while True:
-            self.load_balances()
-            now = datetime.now()
-            current_time = now.strftime("%Y-%m-%D %H:%M:%S")
-                
-            if self.have_money_to_invest():
-                self.notify(f'OK TO INVEST {current_time}')
-                # Buy any asset at a market price
-                asset = choice(self.assets)
-                response = self.buy(asset)
-                # an order is filled with multiple fills. We use the first one
-                price = float(response['fills'][0]['price'])
-                self.notify(f'  - Order price {price}')
-                quantity = float(response['executedQty'])
-                # create several sell orders
-                # avoid "Filter failure: PRICE_FILTER" error (use right number of decimal digits)
-                # avoid "Filter failure: MIN_NOTIONAL"	price * quantity is too low to be a valid order for the symbol.
-                # Errors https://github.com/ExplorerUpdateskaykutee/binance-official-api-docs-1/blob/master/errors.md
-                # ORDER 1: 50% of the asset to gain 2%
-                q1 = round(quantity * 0.5, 4)
-                p1 = round(price * 1.02, 2)
-                r1 = self.sell(asset, q1, p1)
-                # ORDER 2: 30% of the asset to gain 3%
-                q2 = round(quantity * 0.3, 4)
-                p2 = round(price * 1.03, 2)
-                r2 = self.sell(asset, q2, p2)
-                # ORDER 3: 20% of the asset to gain 4%
-                q3 = round(quantity * 0.2, 4)
-                p3 = round(price * 1.04, 2)
-                r3 = self.sell(asset, q3, p3)
-                self.notify(f'  - Sell orders {p1} {r1["status"]}, {p2} {r2["status"]}, {p3} {r3["status"]}')
-            else:
-                self.notify(f'NOT ENOUGH MONEY TO INVEST {current_time}')
+        self.load_balances()
+        now = datetime.now()
+        current_time = now.strftime("%Y-%m-%D %H:%M:%S")
+            
+        if not self.have_money_to_invest():
+            self.notify(f'NOT ENOUGH MONEY TO INVEST {current_time}')
+            return
 
-            sleep(self.pause)
+        self.notify(f'OK TO INVEST {current_time}')
+        # Buy any asset at a market price
+        asset = choice(self.assets)
+        response = self.buy(asset)
+        # an order is filled with multiple fills. We use the first one
+        price = float(response['fills'][0]['price'])
+        self.notify(f'  - Order price {price}')
+        quantity = float(response['executedQty'])
+        # create several sell orders
+        # avoid "Filter failure: PRICE_FILTER" error (use right number of decimal digits)
+        # avoid "Filter failure: MIN_NOTIONAL"	price * quantity is too low to be a valid order for the symbol.
+        # Errors https://github.com/ExplorerUpdateskaykutee/binance-official-api-docs-1/blob/master/errors.md
+        # ORDER 1: 50% of the asset to gain 2%
+        q1 = round(quantity * 0.5, 4)
+        p1 = round(price * 1.015, 2)
+        r1 = self.sell(asset, q1, p1)
+        # ORDER 2: 30% of the asset to gain 3%
+        q2 = round(quantity * 0.3, 4)
+        p2 = round(price * 1.02, 2)
+        r2 = self.sell(asset, q2, p2)
+        # ORDER 3: 20% of the asset to gain 4%
+        q3 = round(quantity * 0.2, 4)
+        p3 = round(price * 1.025, 2)
+        r3 = self.sell(asset, q3, p3)
+        self.notify(f'  - Sell orders {p1} {r1["status"]}, {p2} {r2["status"]}, {p3} {r3["status"]}')    
