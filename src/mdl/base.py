@@ -35,7 +35,8 @@ class MyBinance:
         self.open_orders = None
         if telegram_chat_id:
             self.binancito = Binancito(main_chat_id=telegram_chat_id)
-            self.binancito.start()
+            # only to answer
+            # self.binancito.start()
         else:
             self.binancito = None
 
