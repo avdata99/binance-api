@@ -1,6 +1,7 @@
 from random import choice
 from time import sleep
 from datetime import datetime
+from binance.error import ClientError
 from binance.spot import Spot
 from settings.base import BINANCE_API_KEY, BINANCE_SECRET_KEY, TELEGRAM_CHAT_ID
 from mdl.notifications import Binancito
@@ -29,7 +30,7 @@ class MyBinance:
         self.assets=assets
         # size of each purchase (in "money")
         self.bucket_size=bucket_size
-
+        self.messages = []
         # To load
         self.balances = None
         self.open_orders = None
@@ -69,12 +70,12 @@ class MyBinance:
         money = self.balances.get(self.money, {})
         free_money = money.get('free', 0.0)
         locked_money = money.get('locked', 0.0)
-        self.notify(f'Free Money {self.money}: {free_money} ({locked_money} locked)')
+        self.notify(f'Free Money {self.money}: {free_money} ({locked_money} locked)', cumulate=True)
         assets = {k: v for k, v in self.balances.items() if k != self.money}
         for asset, balance in assets.items():
             free = balance.get('free', 0.0)
             locked = balance.get('locked', 0.0)
-            self.notify(f' - ASSET {asset}: {free} ({locked} locked)')
+            self.notify(f' - ASSET {asset}: {free} ({locked} locked)', cumulate=True)
         return self.balances
 
     def have_money_to_invest(self):
@@ -111,9 +112,16 @@ class MyBinance:
             # we buy in money
             params['quoteOrderQty'] = quantity
 
-        self.notify(f'Ordering to {side} ({order_type}) {quantity} {asset} at {price}')
-        response = self.client.new_order(**params)
-        self.notify(f' - Binance responce: {response}')
+        self.notify(f'Ordering to {side} ({order_type}) {quantity} {asset} at {price}', cumulate=True)
+        try:
+            response = self.client.new_order(**params)
+        except ClientError as e:
+            self.notify(f'ClientError: {e} while ordering {params}', cumulate=True)
+            return {'status': 'ERROR', 'message': str(e)}
+        except Exception as e:
+            self.notify(f'Error ordering: {e} while ordering {params}', cumulate=True)
+            return {'status': 'ERROR', 'message': str(e)}
+        # self.notify(f' - Binance response: {response}')
         return response
 
     def buy(self, asset):
@@ -125,43 +133,56 @@ class MyBinance:
             See your orders https://www.binance.com/es/my/orders/exchange/openorder """
         return self._order(asset, 'SELL', 'LIMIT', quantity, price)
 
-    def notify(self, message):
+    def notify(self, message, cumulate=False):
+        self.messages.append(message)
         if self.binancito:
-            self.binancito.send_main_user_message(message)
+            if not cumulate:
+                msg = '\n'.join(self.messages)
+                self.binancito.send_main_user_message(msg)
+                self.messages = []
         print(message)
 
     def run(self):
         """ Run the bot """
         self.load_balances()
         now = datetime.now()
-        current_time = now.strftime("%Y-%m-%D %H:%M:%S")
+        current_time = now.strftime("%Y-%m-%d %H:%M:%S")
             
         if not self.have_money_to_invest():
             self.notify(f'NOT ENOUGH MONEY TO INVEST {current_time}')
             return
 
-        self.notify(f'OK TO INVEST {current_time}')
+        self.notify(f'OK TO INVEST {current_time}', cumulate=True)
         # Buy any asset at a market price
         asset = choice(self.assets)
         response = self.buy(asset)
+        if response.get('status') == 'ERROR':
+            msg = response.get('message')
+            self.notify(f'  - Error Buying: {msg}')
+            return
+
         # an order is filled with multiple fills. We use the first one
         price = float(response['fills'][0]['price'])
-        self.notify(f'  - Order price {price}')
+        self.notify(f'  - Order price {price}', cumulate=True)
         quantity = float(response['executedQty'])
         # create several sell orders
         # avoid "Filter failure: PRICE_FILTER" error (use right number of decimal digits)
         # avoid "Filter failure: MIN_NOTIONAL"	price * quantity is too low to be a valid order for the symbol.
         # Errors https://github.com/ExplorerUpdateskaykutee/binance-official-api-docs-1/blob/master/errors.md
-        # ORDER 1: 50% of the asset to gain 2%
-        q1 = round(quantity * 0.5, 4)
-        p1 = round(price * 1.015, 2)
+        # ORDER 1: 50% of the asset to gain 0.8%
+        q1 = round(quantity * 0.4, 4)
+        p1 = round(price * 1.006, 2)
         r1 = self.sell(asset, q1, p1)
-        # ORDER 2: 30% of the asset to gain 3%
+        # ORDER 2
         q2 = round(quantity * 0.3, 4)
-        p2 = round(price * 1.02, 2)
+        p2 = round(price * 1.01, 2)
         r2 = self.sell(asset, q2, p2)
-        # ORDER 3: 20% of the asset to gain 4%
+        # ORDER 3
         q3 = round(quantity * 0.2, 4)
-        p3 = round(price * 1.025, 2)
+        p3 = round(price * 1.015, 2)
         r3 = self.sell(asset, q3, p3)
-        self.notify(f'  - Sell orders {p1} {r1["status"]}, {p2} {r2["status"]}, {p3} {r3["status"]}')    
+        # ORDER 4
+        q3 = round(quantity * 0.1, 4)
+        p3 = round(price * 1.02, 2)
+        r3 = self.sell(asset, q3, p3)
+        self.notify(f'  - Sell orders {p1} {r1["status"]}, {p2} {r2["status"]}, {p3} {r3["status"]}')
