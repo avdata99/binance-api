@@ -169,20 +169,17 @@ class MyBinance:
         # avoid "Filter failure: PRICE_FILTER" error (use right number of decimal digits)
         # avoid "Filter failure: MIN_NOTIONAL"	price * quantity is too low to be a valid order for the symbol.
         # Errors https://github.com/ExplorerUpdateskaykutee/binance-official-api-docs-1/blob/master/errors.md
-        # ORDER 1: 50% of the asset to gain 0.8%
-        q1 = round(quantity * 0.4, 4)
-        p1 = round(price * 1.006, 2)
-        r1 = self.sell(asset, q1, p1)
-        # ORDER 2
-        q2 = round(quantity * 0.3, 4)
-        p2 = round(price * 1.01, 2)
-        r2 = self.sell(asset, q2, p2)
-        # ORDER 3
-        q3 = round(quantity * 0.2, 4)
-        p3 = round(price * 1.015, 2)
-        r3 = self.sell(asset, q3, p3)
-        # ORDER 4
-        q3 = round(quantity * 0.1, 4)
-        p3 = round(price * 1.02, 2)
-        r3 = self.sell(asset, q3, p3)
-        self.notify(f'  - Sell orders {p1} {r1["status"]}, {p2} {r2["status"]}, {p3} {r3["status"]}')
+
+        sell_orders = [
+            {'q': 0.4, 'perc': 1.015},
+            {'q': 0.3, 'perc': 1.025},
+            {'q': 0.2, 'perc': 1.03},
+            {'q': 0.1, 'perc': 1.06},
+        ]
+
+        for so in sell_orders:
+            q = round(quantity * so['q'], 4)
+            so['price'] = round(price * so['perc'], 2)
+            so['response'] = self.sell(asset, q, so['price'])
+
+        self.notify('Orders finished')
